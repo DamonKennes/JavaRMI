@@ -34,7 +34,7 @@ public abstract class AbstractScriptedSimpleTest {
 
 	public void run() throws Exception {
 
-		//Print all rooms of the hotelq
+		//Print all rooms of the hotel
 		printAllRooms();
 
 		isRoomAvailable(101, today); //true

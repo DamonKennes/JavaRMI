@@ -12,6 +12,15 @@ public class BookingManager implements IBookingManager {
 		this.rooms = initializeRooms();
 	}
 
+	private Room getRoom(Integer roomNumber){
+		for(Room r: rooms){
+			if(roomNumber.equals(r.getRoomNumber())){
+				return r;
+			}
+		}
+		return null;
+	}
+
 	public Set<Integer> getAllRooms() throws RemoteException {
 		Set<Integer> allRooms = new HashSet<Integer>();
 		Iterable<Room> roomIterator = Arrays.asList(rooms);
@@ -24,17 +33,13 @@ public class BookingManager implements IBookingManager {
     // roomNumber doesnt exist => throw exception
 	public boolean isRoomAvailable(Integer roomNumber, LocalDate date) throws RemoteException {
 		for(Room r: rooms){
-			System.out.println(r.getRoomNumber().toString());
 			if(r.getRoomNumber().equals(roomNumber)){
-				System.out.println("test");
 				ArrayList<BookingDetail> bookings = (ArrayList<BookingDetail>) r.getBookings();
 				for(BookingDetail b: bookings){
 					if(b.getDate().isEqual(date)){
-						System.out.println("testfalse");
 						return false;
 					}
 				}
-				System.out.println("testtrue");
 				return true;
 			}
 		}
@@ -46,38 +51,44 @@ public class BookingManager implements IBookingManager {
 	public void addBooking(BookingDetail bookingDetail) throws RemoteException {
 		Integer roomNumber = bookingDetail.getRoomNumber();
 		LocalDate date = bookingDetail.getDate();
-		if(!this.isRoomAvailable(roomNumber, date)){
-			throw new BookingException("<" + roomNumber.toString() + "> Room " +
-			    roomNumber.toString() + " not available on " + date.toString());
-		}
-		for(Room r : rooms) {
-			if(r.getRoomNumber() == roomNumber){
-				List<BookingDetail> bookings = r.getBookings();
-				bookings.add(bookingDetail);
-				r.setBookings(bookings);
+		Room room = getRoom(roomNumber);
+
+		room.getLock().lock();
+		try{
+			// critical section
+			if(!this.isRoomAvailable(roomNumber, date)){
+			/*throw new BookingException("<" + roomNumber.toString() + "> Room " +
+			    roomNumber.toString() + " not available on " + date.toString());*/
+				System.out.println("Booking Failed.");
 				return;
 			}
+			List<BookingDetail> bookings = room.getBookings();
+			bookings.add(bookingDetail);
+			room.setBookings(bookings);
+			return;
 		}
-		//throw new IllegalArgumentException("<" + roomNumber.toString() + "> No room with number " + roomNumber);
+		finally{
+			//unlock in finally block to ensure the lock is opened
+			//even if an exception is thrown in the CS
+			room.getLock().unlock();
+		}
 	}
 
 	public Set<Integer> getAvailableRooms(LocalDate date) throws RemoteException {
 		Set<Integer> returnable = new HashSet<Integer>();
-		Iterable<Room> roomIterator = Arrays.asList(rooms);
-		for(Room r : roomIterator){
+		for(Room r : rooms){
 			List<BookingDetail> details = r.getBookings();
+			boolean add = true;
 			for (BookingDetail detail: details){
-				if(detail.getDate().isEqual(date) == true){
-					returnable.add(r.getRoomNumber());
+				if(detail.getDate().isEqual(date)){
+					add = false;
 				}
 			}
+			if(add) {
+				returnable.add(r.getRoomNumber());
+			}
 		}
-		if(returnable.isEmpty() == false){
-			return returnable;
-		}
-		else{
-			throw new IllegalArgumentException("No rooms avaible for given date: " + date.toString());
-		}
+		return returnable;
 	}
 
 	private static Room[] initializeRooms() {

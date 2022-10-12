@@ -17,7 +17,6 @@ public class HotelServer {
         //Create BookingManager
         IBookingManager bm = new BookingManager();
 
-
         // locate registry
         Registry registry = null;
         try {
